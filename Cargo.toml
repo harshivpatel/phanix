@@ -8,3 +8,7 @@ panic = "abort"
 
 [profile.release] 
 panic = "abort"
+
+[[bin]]
+name = "phanix"
+path = "kernel/src/main.rs"
