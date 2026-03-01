@@ -1,3 +1,6 @@
 target/
-target/
 Cargo.lock
+
+# Supervisor files — not part of student submission
+supervisor/
+.claude/

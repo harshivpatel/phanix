@@ -3,8 +3,24 @@ name = "phanix"
 version = "0.1.0"
 edition = "2024"
 
+[[bin]]
+name = "phanix"
+path = "kernel/src/main.rs"
+
+[dependencies]
+bootloader = "0.9"
+
 [profile.dev]
 panic = "abort"
 
-[profile.release] 
+[profile.release]
 panic = "abort"
+
+[package.metadata.bootimage]
+run-args = ["-serial", "stdio", "-no-reboot", "-no-shutdown"]
+test-args = [
+    "-device", "isa-debug-exit,iobase=0xf4,iosize=0x04",
+    "-serial", "stdio",
+    "-display", "none"
+]
+test-success-exit-code = 33
