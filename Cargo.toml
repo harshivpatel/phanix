@@ -9,18 +9,12 @@ panic = "abort"
 [profile.release] 
 panic = "abort"
 
-<<<<<<< Updated upstream
-[[bin]]
-name = "phanix"
-path = "kernel/src/main.rs"
-=======
 [dependencies]
-bootloader = "0.9.0"
+bootloader = "0.9.23"
 
 # links our kernel to the dependency
 [package.metadata.bootimage] 
 run-command = ["qemu-system-x86_64", "-drive", "format=raw,file={}", "-serial", "stdio"]
 
 # tells bootimage to wait for the bootloader crate to be ready before trying to create the .bin file.
-test-args = ["-device", "isa-debug-exit,iobase=0xf4,iosize=0x04", "-display", "none"]
->>>>>>> Stashed changes
+test-args = ["-device", "isa-debug-exit,iobase=0xf4,iosize=0x04"]
