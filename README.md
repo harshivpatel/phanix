@@ -31,6 +31,30 @@ To verify successful booting and memory mapping, a minimal hardware handshake wa
 
 ![Phanix Victory Screenshot](docs/qemu_entry.png)
 
+## Technical Hurdles and Debugging
+
+This section documents the primary obstacles encountered during the infrastructure setup and the technical reasoning behind their resolutions.
+
+### 1. Segmentation Fault on Host Execution
+* **The Error**: `Segmentation fault (core dumped)` after running `cargo run`.
+* **The Context**: Attempting to execute the kernel binary directly in the Linux terminal.
+* **The Cause**: The binary is compiled for a freestanding `x86_64-phanix` target. It lacks a standard `main` function and the C runtime required by Linux. When executed as a native process, the CPU triggers a fault because it cannot find the expected OS entry points.
+* **The Resolution**: Configured `.cargo/config.toml` with a custom runner: `runner = "bootimage runner"`. This forces Cargo to wrap the binary in a bootloader and execute it via QEMU instead of the host OS.
+
+
+
+### 2. Bootloader Mapping Conflict (Red Screen Panic)
+* **The Error**: QEMU display turned red with the message `panicked at src/page_table.rs: PageAlreadyMapped`.
+* **The Context**: The `bootloader` crate was attempting to transition the CPU into 64-bit Long Mode.
+* **The Cause**: A bug in the initial `bootloader v0.9.0` dependency caused a collision between the kernel's memory segments and the recursive page table entries. The bootloader tried to map a memory page that was already occupied.
+* **The Resolution**: Updated `Cargo.toml` to `bootloader = "0.9.23"`. Additionally, performed a `cargo clean` to ensure all previous memory artifacts were purged from the build cache.
+
+
+### 3. VGA Buffer Headless/Blind Output
+* **The Error**: QEMU launched but displayed a permanent black screen, even though code was technically correct.
+* **The Context**: Implementing the first hardware write to `0xb8000`.
+* **The Cause**: The QEMU configuration in `test-args` included `-display none` or an incomplete `-display` flag, which suppressed the graphical window. Simultaneously, the `line_offset` was set to the bottom of the screen where it was obscured by BIOS status text.
+* **The Resolution**: Removed conflicting display flags from `Cargo.toml` and adjusted the `_start` logic to write to the top-left of the buffer (index 0) to ensure immediate visibility.
 
 ## Building and Execution
 The kernel is configured to build for the custom x86_64-phanix target. The build-std feature is utilized in the local Cargo configuration to recompile the core and compiler_builtins crates for the specific hardware target.
