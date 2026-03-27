@@ -11,6 +11,7 @@ panic = "abort"
 
 [dependencies]
 bootloader = "0.9.23"
+volatile="0.2.6" # provides read_volatile & write_volatile functions that gurantees that read/writes are not optimized
 
 # links our kernel to the dependency
 [package.metadata.bootimage] 
