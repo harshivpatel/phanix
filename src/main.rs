@@ -8,32 +8,13 @@
     static PHANIX: &[u8] = b"phanix";
 
     #[unsafe(no_mangle)]
-    // pub extern "C" fn _start() -> ! {
-    //     let vga_buffer = 0xb8000 as *mut u8;
+    pub extern "C" fn _start() -> ! {
+        use core::fmt::Write;
+        vga_buffer::WRITER.lock().write_str("Hello again").unwrap();
+        write!(vga_buffer::WRITER.lock(), ", some numbers: {} {}", 42, 1.337).unwrap();
 
-    //     for (i, &byte) in PHANIX.iter().enumerate() {
-    //         unsafe {
-    //             let line_offset: isize = 0; 
-                
-    //             let char_offset = (i as isize * 2) + line_offset;
-    //             let color_offset = (i as isize * 2 + 1) + line_offset;
-
-    //             *vga_buffer.offset(char_offset) = byte;
-    //             *vga_buffer.offset(color_offset) = 0x0b;
-    //         }
-    //     }
-    //     loop {}
-    // }
-
-    // in src/main.rs
-
-#[unsafe(no_mangle)]
-pub extern "C" fn _start() -> ! {
-    vga_buffer::print();
-
-    loop {}
-}
-    
+        loop {}
+    }    
 
     #[panic_handler]
     fn panic(_info: &PanicInfo) -> ! {
