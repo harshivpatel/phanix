@@ -1,26 +1,22 @@
-#![no_std]
-#![no_main]
+    #![no_std]
+    #![no_main]
 
-use core::panic::PanicInfo;
+    mod vga_buffer;
 
-static PHANIX: &[u8] = b"phanix";
+    use core::panic::PanicInfo;
 
-#[unsafe(no_mangle)]
-pub extern "C" fn _start() -> ! {
-    let vga_buffer = 0xb8000 as *mut u8;
+    static PHANIX: &[u8] = b"phanix";
 
-    for (i, &byte) in PHANIX.iter().enumerate() {
-        unsafe {
-            let line_offset: isize = 0; 
-            
-            let char_offset = (i as isize * 2) + line_offset;
-            let color_offset = (i as isize * 2 + 1) + line_offset;
+    #[unsafe(no_mangle)]
+    pub extern "C" fn _start() -> ! {
+        println!("Hello World{}", "!");
+        panic!("Testing the custom panic handler!");
+        loop {}
+    }    
 
-            *vga_buffer.offset(char_offset) = byte;
-            *vga_buffer.offset(color_offset) = 0x0b;
-        }
+    #[panic_handler]
+    fn panic(info: &PanicInfo) -> ! {
+        println!("{}", info);
+        loop {}
     }
-    loop {}
-}
-#[panic_handler]
-fn panic(_info: &PanicInfo) -> ! { loop {} }
+
