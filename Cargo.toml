@@ -11,16 +11,22 @@ panic = "abort"
 
 [dependencies]
 bootloader = "0.9.23"
-volatile="0.2.6" # provides read_volatile & write_volatile functions that gurantees that read/writes are not optimized
+volatile="=0.2.6" # Provides read_volatile & write_volatile functions that gurantees that read/writes are not optimized
 spin = "0.5.2" # For interior Mutability
 
-# links our kernel to the dependency
+# Links our kernel to the dependency
 [package.metadata.bootimage] 
 run-command = ["qemu-system-x86_64", "-drive", "format=raw,file={}", "-serial", "stdio"]
-
-# tells bootimage to wait for the bootloader crate to be ready before trying to create the .bin file.
+# For exiting QEMU
 test-args = ["-device", "isa-debug-exit,iobase=0xf4,iosize=0x04"]
+
 
 [dependencies.lazy_static] # For Global Interface
 version = "1.0"
 features = ["spin_no_std"]
+
+# Testing
+[[bin]]
+name = "phanix"
+test = true
+bench = false
