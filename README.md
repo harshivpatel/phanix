@@ -8,38 +8,33 @@ Phanix is a 64-bit operating system kernel developed from the ground up using th
 * **Memory Management**: The system implements 4-level Paging with Recursive Page Table mapping for address space isolation.
 * **Concurrency Model**: A cooperative multitasking model is employed via a specialized Async Task Executor.
 
-## Current Branch Development: VGA Text Buffer Driver & Formatting Subsystem
-This branch marks the transition from static hardware writes to a dynamic, thread-safe terminal interface. The following technical implementations have been completed to establish a robust output subsystem.
+## Current Branch Development: Automated Integration Testing Framework
+This branch marks the transition from isolated, manual hardware validation to a scalable, automated integration testing architecture. The system has been refactored to decouple the core driver code from the runtime binary target, enabling comprehensive testing matrices inside a headless virtual environment.
 
-### Hardware Verification & Driver Output
-The VGA driver implementation was verified by executing the kernel within the QEMU emulator. The following image demonstrates the successful initialization of the `WRITER` global static, the functional `println!` macro, and the automated scrolling logic.
+### Refactored Crate Structural Boundary
+To facilitate external testing, the kernel architecture has been split into a distinct library target and binary target to adhere to Rust's compilation constraints.
+* **src/lib.rs (Library Crate)**: Serves as the centralized, reusable core of the operating system. It exposes the VGA buffer abstractions, serial port communication pipelines, custom test runners, and global panic hooks.
+* **src/main.rs (Binary Crate)**: Acts as a lightweight executable entry point for the standard kernel bootstrap process, linking directly against the internal library crate.
 
-<p align="center">
-  <img src="docs/vga-driver-result.png" alt="Phanix OS VGA Output" width="700">
-  <br>
-  <b>Figure 1:</b> <i>Phanix Kernel successfully rendering text and handling a test panic at 0xb8000.</i>
-</p>
+### Independent Integration Test Suites (tests/)
+Standalone integration tests are isolated inside the root level directory to guarantee they execute entirely separate from the main application thread.
+* **tests/basic_boot.rs**: Implements a baseline boot validation test package. It re-declares low-level configuration attributes to boot independently on top of the raw bootloader environment and programmatically verifies that basic display streams initialize without crashing.
+* **tests/should_panic.rs**: Establishes a negative testing framework. By disabling the default test harness via structural flags, it utilizes a custom loop to verify that internal errors and failing assertions trigger defensive crash states exactly when anticipated.
 
-### High-Level VGA Abstraction
-A complete driver for the VGA text buffer (located at `0xb8000`) has been implemented to manage screen output.
-* **Encapsulation**: Developed a `Writer` struct to manage the cursor position, color attributes, and a reference to the VGA hardware buffer.
-* **Volatile Memory Safety**: Utilized the `volatile` crate to wrap memory-mapped I/O operations, ensuring the Rust compiler does not optimize away "apparent" dead writes to the hardware.
-* **Color Management**: Implemented a `ColorCode` system using bit-shifting logic to pack 4-bit foreground and background colors into a single `u8` attribute byte.
+### Headless Hardware Termination and Exit Port I/O
+Automating bare-metal integration testing requires a reliable path to shut down the host emulator upon suite completion.
+* **Port-Mapped I/O Communication**: Implemented an automated exit routine using the `x86_64::instructions::port::Port` abstraction. The kernel writes a specific bit pattern to an arbitrary debugging I/O port address at `0xf4`.
+* **ISA Debug Exit Mapping**: This write instruction talks to QEMU's emulated hardware interface, causing the virtual machine to shut down immediately. It returns a success status byte of 33 or a failure status byte of 34 directly back to the host machine shell.
+* **Exit Status Code Translation**: Configured the build toolchain via `Cargo.toml` to capture the non-zero hardware exit code (33) and map it back to a standard host success flag (0). This prevents automated verification environments from misinterpreting a clean virtual machine shutdown as a runtime error.
 
-### Vertical Scrolling & Buffer Management
-To handle continuous output, a vertical scrolling mechanism was developed.
-* **Row Shifting**: Implemented a `new_line` method that performs a manual block transfer of `ScreenChar` data from row `n` to row `n-1`.
-* **Safe Overflows**: Added logic to clear the bottom row and reset the column position when the buffer limit (25 rows x 80 columns) is exceeded.
+### Comprehensive Hardware Verification Test Matrix
+The unified test framework executes a 4-part testing matrix to mathematically validate the robustness of the text buffer and communication lines:
+* **test_println_simple**: A basic smoke test confirming that macro formatting executes without hanging the instruction pointer.
+* **test_println_output**: A data integrity test that executes character-by-character string validation. It performs volatile memory reads directly off the physical hardware video card memory address (`0xb8000`) to confirm written text matches displayed bytes.
+* **test_println_many**: A stability stress test that prints 200 consecutive lines to force the row-shifting logic to scroll the screen 175 times back-to-back, confirming that memory bounds do not overflow.
+* **test_println_long_line**: A boundary limit test that allocates an array of 80 characters directly onto the stack to perform horizontal wrapping verification. It proves that the 81st printed character automatically triggers a line wrap, resetting the column index back to 0 on the next row without causing memory corruption.
 
-### Standard Library Integration (no_std)
-The driver was integrated into the Rust ecosystem to provide a familiar developer experience.
-* **Trait Implementation**: Implemented `core::fmt::Write` for the `Writer` struct, enabling support for Rust’s core formatting engine.
-* **Global Interface**: Created a global `WRITER` instance using `lazy_static` and a **Spinlock (Mutex)** to ensure thread-safe access from any part of the kernel.
-* **Custom Macros**: Developed `print!` and `println!` macros that hook into the global `_print` function, allowing for standard string interpolation.
-
-### Diagnostic Panic Handler
-The system's error reporting was upgraded from a silent hang to a visual "Kernel Oops" system.
-* **Panic Redirection**: The `#[panic_handler]` now utilizes the custom `println!` macro to output `PanicInfo` (message, file, and line number) directly to the screen upon failure.
+---
 
 ## Technical Hurdles and Debugging
 
@@ -61,12 +56,23 @@ The system's error reporting was upgraded from a silent hang to a visual "Kernel
 * **The Cause**: The VGA hardware only supports a specific 8-bit character set (Code Page 437). UTF-8 characters can be multiple bytes long, which the hardware interprets as separate, unrelated symbols.
 * **The Resolution**: Updated the `write_string` logic with a match arm to filter for the printable ASCII range (`0x20..=0x7e`). Any character outside this range is automatically replaced with a fallback "block" character (`■` / `0xfe`).
 
+### 4. Non-Std Heap Allocations in Test Environments
+* **The Error**: `error[E0433]: cannot find type String in this scope`.
+* **The Context**: Creating a dynamic string via `String::new()` inside the horizontal line wrapping test suite.
+* **The Cause**: The kernel operates inside a bare-metal `#![no_std]` scope without a configured memory allocator. Heap-allocated dynamic data structures are entirely unavailable at this stage of initialization.
+* **The Resolution**: Redesigned the horizontal test suite to use fixed-size stack arrays. Allocating the data block via `let long_line = ['A'; 80];` lets the test cycle through characters locally on the CPU stack frame, removing the dependency on external heap runtimes.
+
+---
+
 ## Building and Execution
 The kernel is configured to build for the custom x86_64-phanix target. 
 
 ```bash
-# Compile the kernel and rebuild core library
+# Compile the core kernel library and binary packages
 cargo build
 
-# Create bootable image and execute via QEMU
+# Execute the integrated automated testing suite across all test targets
+cargo test
+
+# Build a bootable disk image and launch the operating system inside QEMU
 cargo run
