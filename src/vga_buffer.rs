@@ -184,24 +184,23 @@ fn test_println_output() {
 }
 #[test_case]
 fn test_println_long_line() {
-    // Construct an over-sized string payload
-    let mut long_string = String::new();
-    for _ in 0..80 {
-        long_string.push('A'); // Fills exactly 1 full row width
+    // We create a static buffer of 80 'A' characters directly on the stack
+    let mut long_line = ['A'; 80];
+    
+    // Print the 80 'A's as a string slice, then immediately print 'B' to force the wrap
+    for c in long_line.iter() {
+        print!("{}", c);
     }
-    long_string.push('B');     // The 81st character that forces the line wrap
+    println!("B"); // The 'B' plus trailing newline (\n) triggers the shifts
 
-    // Ship the string to the hardware
-    println!("{}", long_string);
-
-    // Validate the first row chunk (The 80 'A's)
+    // Validate the first row chunk (The 80 'A's) now sitting at BUFFER_HEIGHT - 3
     let writer = WRITER.lock();
     for i in 0..80 {
         let screen_char = writer.buffer.chars[BUFFER_HEIGHT - 3][i].read();
         assert_eq!(char::from(screen_char.ascii_character), 'A');
     }
 
-    // Validate the wrapped character (The single 'B')
+    // Validate the wrapped character (The single 'B') sitting at BUFFER_HEIGHT - 2
     let wrapped_char = writer.buffer.chars[BUFFER_HEIGHT - 2][0].read();
     assert_eq!(char::from(wrapped_char.ascii_character), 'B');
 }
