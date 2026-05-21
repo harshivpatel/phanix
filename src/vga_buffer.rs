@@ -150,3 +150,58 @@ pub fn _print(args: fmt::Arguments) {
     use core::fmt::Write;
     WRITER.lock().write_fmt(args).unwrap();
 }
+
+// This test just prints to VGA Buffer. If it finishes without panicking that means println did not panic
+#[test_case]
+fn test_println_simple() {
+    println!("test_println_simple output");
+}
+
+
+// Enusres that no panic occurs even if the lines are printed and they are shfited off the screen
+#[test_case]
+fn test_println_many() {
+    for _ in 0..200 {
+        println!("test_println_many output");
+    }
+}
+
+#[test_case]
+fn test_println_output() {
+    let s = "Some test string that fits on a sinlge line";
+    
+    // Print string to VGA buffer; trailing newline (\n) shifts this line up by 1 row
+    println!("{}", s);
+    
+    // Iterate through characters tracking both index (i) and character value (c)
+    for (i, c) in s.chars().enumerate() {
+        // Read raw byte directly from hardware memory (Row 23) via volatile read
+        let screen_char = WRITER.lock().buffer.chars[BUFFER_HEIGHT - 2][i].read();
+        
+        // Assert that the printed character matches the physical character in video memory
+        assert_eq!(char::from(screen_char.ascii_character), c);
+    }
+}
+#[test_case]
+fn test_println_long_line() {
+    // Construct an over-sized string payload
+    let mut long_string = String::new();
+    for _ in 0..80 {
+        long_string.push('A'); // Fills exactly 1 full row width
+    }
+    long_string.push('B');     // The 81st character that forces the line wrap
+
+    // Ship the string to the hardware
+    println!("{}", long_string);
+
+    // Validate the first row chunk (The 80 'A's)
+    let writer = WRITER.lock();
+    for i in 0..80 {
+        let screen_char = writer.buffer.chars[BUFFER_HEIGHT - 3][i].read();
+        assert_eq!(char::from(screen_char.ascii_character), 'A');
+    }
+
+    // Validate the wrapped character (The single 'B')
+    let wrapped_char = writer.buffer.chars[BUFFER_HEIGHT - 2][0].read();
+    assert_eq!(char::from(wrapped_char.ascii_character), 'B');
+}
