@@ -5,6 +5,8 @@
 #![reexport_test_harness_main = "test_main"]
 #![feature(abi_x86_interrupt)]
 
+pub mod gdt;
+
 use core::panic::PanicInfo;
 pub mod serial;
 pub mod vga_buffer;
@@ -59,6 +61,7 @@ pub fn exit_qemu(exit_code: QemuExitCode) {
 #[cfg(test)]
 #[unsafe(no_mangle)]
 pub extern "C" fn _start() -> ! {
+    init();
     test_main();
     loop {}
 }
@@ -70,5 +73,6 @@ fn panic(info: &PanicInfo) -> ! {
 }
 
 pub fn init() {
+    gdt::init();
     interrupts::init_idt();
 }
