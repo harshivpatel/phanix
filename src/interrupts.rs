@@ -1,4 +1,7 @@
-use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
+use core::iter::Scan;
+
+use pc_keyboard::{DecodedKey, KeyCode::K, Keyboard, layouts};
+use x86_64::{instructions::port, structures::idt::{InterruptDescriptorTable, InterruptStackFrame}};
 use crate::{gdt, print, println};
 use lazy_static::lazy_static;
 use pic8259::ChainedPics;
@@ -19,6 +22,8 @@ lazy_static! {
         idt[InterruptIndex::Timer.as_usize()]
             .set_handler_fn(timer_interrupt_handler);
         
+        idt[InterruptIndex::Keyboard.as_usize()]
+            .set_handler_fn(keyboard_interrupt_handler);
         idt
     };
 }
@@ -45,8 +50,8 @@ extern "x86-interrupt" fn double_fault_handler(
     }
 
 extern "x86-interrupt" fn timer_interrupt_handler(
-_stack_frame: InterruptStackFrame) {
-    print!(".");
+    _stack_frame: InterruptStackFrame) {
+        print!(".");
 
     unsafe {
         PICS.lock()
@@ -54,7 +59,46 @@ _stack_frame: InterruptStackFrame) {
     }
 }
 
+/// in interrupts.rs
 
+extern "x86-interrupt" fn keyboard_interrupt_handler(
+    _stack_frame: InterruptStackFrame
+) {
+    use pc_keyboard::{layouts, DecodedKey, HandleControl, Keyboard, ScancodeSet1};
+    use spin::Mutex;
+    use x86_64::instructions::port::Port;
+
+    // Thread-safe state container preserving modifier states across async interrupts
+    static KEYBOARD: Mutex<Keyboard<layouts::Us104Key, ScancodeSet1>> =
+        Mutex::new(Keyboard::new(
+            ScancodeSet1::new(),
+            layouts::Us104Key,
+            HandleControl::Ignore,
+        ));
+
+    let mut keyboard = KEYBOARD.lock();
+    let mut port = Port::new(0x60);
+
+    // Read from port 0x60 to drain the hardware buffer and clear the line
+    let scancode: u8 = unsafe { port.read() };
+
+    // Pass the raw byte to the state machine for processing
+    if let Ok(Some(key_event)) = keyboard.add_byte(scancode) {
+        // Unify character generation and handle active shift states
+        if let Some(key) = keyboard.process_keyevent(key_event) {
+            match key {
+                DecodedKey::Unicode(character) => print!("{}", character),
+                DecodedKey::RawKey(key) => print!("{:?}", key),
+            }
+        }
+    }
+
+    unsafe {
+        // Send end of interrupt confirmation to clear the master PIC line
+        PICS.lock()
+            .notify_end_of_interrupt(InterruptIndex::Keyboard.as_u8());
+    }
+}
 #[test_case]
 fn test_breakpoint_exception() {
     x86_64::instructions::interrupts::int3();
@@ -73,6 +117,7 @@ pub static PICS: spin::Mutex<ChainedPics> =
 #[repr(u8)]
 pub enum InterruptIndex {
     Timer = PIC_1_OFFSET, // Registers system clock heartbeat line explicitly to vector 32
+    Keyboard,
 }
 impl InterruptIndex {
     // Converts the named variant into its raw u8 index for PIC confirmation commands

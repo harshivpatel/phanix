@@ -16,6 +16,7 @@ spin = "0.5.2" # For interior Mutability
 x86_64 = "0.14.2"
 uart_16550 = "0.6.0"
 pic8259 = "0.10.1"
+pc-keyboard = "0.7.0"
 
 # Links our kernel to the dependency
 [package.metadata.bootimage] 

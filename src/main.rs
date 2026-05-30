@@ -18,7 +18,7 @@ pub extern "C" fn _start() -> ! {
 
     println!("It did not crash");
 
-    loop {}
+    phanix::hlt_loop();
 }
 
 /// This function is called on panic.
@@ -26,7 +26,7 @@ pub extern "C" fn _start() -> ! {
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     println!("{}", info);
-    loop {}
+    phanix::hlt_loop();
 }
 
 #[cfg(test)]
