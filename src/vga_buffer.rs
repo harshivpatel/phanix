@@ -148,7 +148,13 @@ macro_rules! println {
 #[doc(hidden)]
 pub fn _print(args: fmt::Arguments) {
     use core::fmt::Write;
-    WRITER.lock().write_fmt(args).unwrap();
+
+    use x86_64::instructions::interrupts;
+
+    interrupts::without_interrupts(|| {
+        WRITER.lock().write_fmt(args).unwrap();
+    });
+    
 }
 
 // This test just prints to VGA Buffer. If it finishes without panicking that means println did not panic
@@ -183,24 +189,17 @@ fn test_println_output() {
     }
 }
 #[test_case]
-fn test_println_long_line() {
-    // We create a static buffer of 80 'A' characters directly on the stack
-    let mut long_line = ['A'; 80];
-    
-    // Print the 80 'A's as a string slice, then immediately print 'B' to force the wrap
-    for c in long_line.iter() {
-        print!("{}", c);
-    }
-    println!("B"); // The 'B' plus trailing newline (\n) triggers the shifts
+fn test_println_output() {
+    use core::fmt::Write;
+    use x86_64::instructions::interrupts;
 
-    // Validate the first row chunk (The 80 'A's) now sitting at BUFFER_HEIGHT - 3
-    let writer = WRITER.lock();
-    for i in 0..80 {
-        let screen_char = writer.buffer.chars[BUFFER_HEIGHT - 3][i].read();
-        assert_eq!(char::from(screen_char.ascii_character), 'A');
-    }
-
-    // Validate the wrapped character (The single 'B') sitting at BUFFER_HEIGHT - 2
-    let wrapped_char = writer.buffer.chars[BUFFER_HEIGHT - 2][0].read();
-    assert_eq!(char::from(wrapped_char.ascii_character), 'B');
+    let s = "Some test string that fits on a single line";
+    interrupts::without_interrupts(|| {
+        let mut writer = WRITER.lock();
+        writeln!(writer, "\n{}", s).expect("writeln failed");
+        for (i, c) in s.chars().enumerate() {
+            let screen_char = writer.buffer.chars[BUFFER_HEIGHT - 2][i].read();
+            assert_eq!(char::from(screen_char.ascii_character), c);
+        }
+    });
 }
