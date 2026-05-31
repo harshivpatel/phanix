@@ -15,6 +15,8 @@ volatile="=0.2.6" # Provides read_volatile & write_volatile functions that guran
 spin = "0.5.2" # For interior Mutability
 x86_64 = "0.14.2"
 uart_16550 = "0.6.0"
+pic8259 = "0.10.1"
+pc-keyboard = "0.7.0"
 
 # Links our kernel to the dependency
 [package.metadata.bootimage] 
@@ -38,4 +40,8 @@ bench = false
 
 [[test]]
 name = "should_panic"
+harness = false
+
+[[test]]
+name = "stack_overflow"
 harness = false
