@@ -8,7 +8,6 @@ Phanix is a 64-bit operating system kernel developed from the ground up using th
 * **Memory Management**: The system implements 4-level Paging with Complete Physical Memory Mapping for address space isolation.
 * **Concurrency Model**: A cooperative multitasking model is employed via a specialized Async Task Executor.
 
-<<<<<<< HEAD
 ---
 
 ## Module 1: VGA Text Buffer Driver & Formatting Subsystem
@@ -48,28 +47,27 @@ The system's error reporting was upgraded from a silent hang to a visual "Kernel
 
 ## Module 2: Automated Integration Testing Framework
 This subsystem introduces a scalable, automated integration testing architecture to validate hardware states headlessly.
-=======
-## Current Branch Development: Interrupt Handling Infrastructure
-This branch transitions the kernel from a synchronous execution loop to a reactive, asynchronous runtime architecture. The codebase implements low-level CPU exception vectors, remaps the legacy Programmable Interrupt Controller (PIC) chips, configures a Global Descriptor Table (GDT) with an emergency Task State Segment (TSS) stack, and introduces drivers for asynchronous system timers and keyboard matrices.
->>>>>>> feat/interrupts
+
+### Headless Hardware Termination and Exit Port I/O
+Automating bare-metal integration testing requires a reliable path to shut down the host emulator upon suite completion.
+* **Port-Mapped I/O Communication**: Implemented an automated exit routine using the `x86_64::instructions::port::Port` abstraction. The kernel writes a specific bit pattern to an arbitrary debugging I/O port address at `0xf4`.
+* **ISA Debug Exit Mapping**: This write instruction talks to QEMU's emulated hardware interface, causing the virtual machine to shut down immediately. It returns a success status byte of 33 or a failure status byte of 34 directly back to the host machine shell.
+* **Exit Status Code Translation**: Configured the build toolchain via `Cargo.toml` to capture the non-zero hardware exit code (33) and map it back to a standard host success flag (0).
+
+---
+
+## Module 3: Interrupt Handling Infrastructure
+This subsystem transitions the kernel from a synchronous execution loop to a reactive, asynchronous runtime architecture. The codebase implements low-level CPU exception vectors, remaps the legacy Programmable Interrupt Controller (PIC) chips, configures a Global Descriptor Table (GDT) with an emergency Task State Segment (TSS) stack, and introduces drivers for asynchronous system timers and keyboard matrices.
 
 ### Verification Matrix Output
 The following capture illustrates the successfully initialized asynchronous system runtime executing inside the QEMU emulator environment:
 
 ![Phanix Interrupt Execution Layout](docs/interrupts_success.png)
 
-<<<<<<< HEAD
-### Headless Hardware Termination and Exit Port I/O
-Automating bare-metal integration testing requires a reliable path to shut down the host emulator upon suite completion.
-* **Port-Mapped I/O Communication**: Implemented an automated exit routine using the `x86_64::instructions::port::Port` abstraction. The kernel writes a specific bit pattern to an arbitrary debugging I/O port address at `0xf4`.
-* **ISA Debug Exit Mapping**: This write instruction talks to QEMU's emulated hardware interface, causing the virtual machine to shut down immediately. It returns a success status byte of 33 or a failure status byte of 34 directly back to the host machine shell.
-* **Exit Status Code Translation**: Configured the build toolchain via `Cargo.toml` to capture the non-zero hardware exit code (33) and map it back to a standard host success flag (0).
-=======
 ### Dual-Layer Core Initialization Flow
 To establish a stable environment for hardware event tracking, execution setup is split across two explicit boundaries:
 * **src/gdt.rs (Global Descriptor Table)**: Configures segment boundaries and sets up a Task State Segment (TSS). The TSS registers an independent, 20 KB emergency stack index dedicated entirely to catching Double Faults. This guarantees that if the main execution path suffers a stack overflow, the CPU can switch over to a clean memory space rather than triggering an unrecoverable triple fault.
 * **src/interrupts.rs (Interrupt Descriptor Table)**: Configures and loads the 256-slot IDT switchboard. It maps CPU exception vectors (such as Breakpoints and Double Faults) and hardware interrupt vectors to explicit handler functions using the specialized `"x86-interrupt"` calling convention.
->>>>>>> feat/interrupts
 
 ### Programmable Interrupt Controller (PIC) Remapping
 The motherboard uses two cascaded Intel 8259 PIC chips (Master and Slave) to manage 15 hardware interrupt lines. By default, these chips map events to vectors 0–15, which directly overlaps with internal CPU exception gates.
@@ -86,7 +84,6 @@ The system implements handlers for the two primary motherboard interrupt channel
 
 ## Technical Hurdles and Debugging
 
-<<<<<<< HEAD
 ### 1. Silent Buffer Overwrites (The Scrolling Bug)
 * **The Cause**: The initial implementation lacked a check for the row boundary. The cursor would continue incrementing the memory address beyond the mapped VGA space, potentially corrupting other memory regions.
 * **The Resolution**: Implemented the `new_line` function. This function utilizes a nested loop to shift all characters up by one row and clears the 24th row for new input, providing a standard terminal "scrolling" feel.
@@ -102,31 +99,30 @@ The system implements handlers for the two primary motherboard interrupt channel
 ### 4. Non-Std Heap Allocations in Test Environments
 * **The Cause**: The kernel operates inside a bare-metal `#![no_std]` scope without a configured memory allocator. Heap-allocated dynamic data structures are entirely unavailable at this stage of initialization.
 * **The Resolution**: Redesigned the horizontal test suite to use fixed-size stack arrays. Allocating the data block via `let long_line = ['A'; 80];` lets the test cycle through characters locally on the CPU stack frame, removing the dependency on external heap runtimes.
-=======
-### 1. Invisible Panic Output (The Red-on-Black Bug)
+
+### 5. Invisible Panic Output (The Red-on-Black Bug)
 * **The Error**: The kernel would boot into a completely blank, silent screen rather than displaying initialization logs.
 * **The Context**: Intentionally triggering a stack overflow to verify the double fault exception framework.
 * **The Cause**: The core `WRITER` foreground color was configured to use `Color::Red`. When the stack overflow successfully triggered a Double Fault, the handler invoked a panic. Because the default background color of the VGA card is `Color::Black`, the red text blended into the background canvas, rendering the exception details invisible.
 * **The Resolution**: Updated the diagnostic environment to omit the intentional stack crash during normal boot loops and verified text outputs. Added explicit palette overrides inside high-priority tracking blocks to ensure exception details print clearly.
 
-### 2. Vertical Column Cascades (The println Scroll Bug)
+### 6. Vertical Column Cascades (The println Scroll Bug)
 * **The Error**: When the timer interrupt began firing, the entire screen text violently scrolled upwards, leaving a single vertical column of dots on the left margin.
 * **The Context**: Initializing the system heartbeat ticker loop.
 * **The Cause**: The handler utilized the `println!` macro, which appends a trailing newline (`\n`). Because the timer fires multiple times per second, it continuously triggered the VGA buffer's row-shifting logic, scrolling all text off the top edge of the screen.
 * **The Resolution**: Swapped out the macro inside the timer handler to use `print!` and changed the character stream to write raw bytes horizontally across the active line without advancing rows.
 
-### 3. Circular Dependency Lockup (The Deadlock Race Condition)
+### 7. Circular Dependency Lockup (The Deadlock Race Condition)
 * **The Error**: The kernel would freeze instantly and stop responding to keyboard inputs after printing a few characters.
 * **The Context**: Simultaneous printing commands executing from both the main application thread and asynchronous hardware interrupts.
 * **The Cause**: The main thread called `println!` and locked the global `WRITER` spinlock. Mid-operation, a timer interrupt fired and paused the thread. The timer handler then called `print!`, attempting to lock the exact same `WRITER`. The handler spun infinitely waiting for the lock to open, while the main thread remained frozen waiting for the interrupt to exit.
 * **The Resolution**: Integrated an interrupt-nesting rule within the architecture. Implemented the `x86_64::instructions::interrupts::without_interrupts` helper block inside critical execution sections and testing frameworks. This turns off the CPU's interrupt listening pin during a lock window, ensuring operations complete before an interrupt handler can execute.
 
-### 4. Single Keypress Lock (The Keyboard Buffer Stash)
+### 8. Single Keypress Lock (The Keyboard Buffer Stash)
 * **The Error**: The keyboard handler correctly caught the very first keypress, but would never print another character again on subsequent typing.
 * **The Context**: Testing initial keypress routines with basic print marks.
 * **The Cause**: The initial implementation sent an EOI signal to the PIC but forgot to poll the device register data. The keyboard controller holds the generated scancode byte inside its 1-byte hardware buffer and refuses to generate any subsequent interrupts until that byte is read.
 * **The Resolution**: Imported the `x86_64::instructions::port::Port` utility into the handler loop to explicitly read from port `0x60`. Draining the hardware port flushes the chip and resets its internal state machine for the next input.
->>>>>>> feat/interrupts
 
 ---
 
