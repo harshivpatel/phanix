@@ -1,12 +1,11 @@
-use core::iter::Scan;
-
-use pc_keyboard::{DecodedKey, KeyCode::K, Keyboard, layouts};
-use x86_64::{instructions::port, structures::idt::{InterruptDescriptorTable, InterruptStackFrame}};
-use crate::{gdt, print, println};
+use x86_64::instructions::port;
+use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 use lazy_static::lazy_static;
 use pic8259::ChainedPics;
 use spin;
 
+// Explicitly pull in your custom GDT and VGA printing macros from the crate root
+use crate::{gdt, print, println};
 // A safe, permanent, read-only global variable for our table
 lazy_static! {
     static ref IDT: InterruptDescriptorTable = {
@@ -24,6 +23,7 @@ lazy_static! {
         
         idt[InterruptIndex::Keyboard.as_usize()]
             .set_handler_fn(keyboard_interrupt_handler);
+        idt.page_fault.set_handler_fn(page_fault_handler);
         idt
     };
 }
@@ -58,8 +58,6 @@ extern "x86-interrupt" fn timer_interrupt_handler(
             .notify_end_of_interrupt(InterruptIndex::Timer.as_u8());
     }
 }
-
-/// in interrupts.rs
 
 extern "x86-interrupt" fn keyboard_interrupt_handler(
     _stack_frame: InterruptStackFrame
@@ -99,6 +97,23 @@ extern "x86-interrupt" fn keyboard_interrupt_handler(
             .notify_end_of_interrupt(InterruptIndex::Keyboard.as_u8());
     }
 }
+
+use x86_64::structures::idt::PageFaultErrorCode;
+use crate::hlt_loop;
+
+extern "x86-interrupt" fn page_fault_handler(
+    stack_frame: InterruptStackFrame,
+    error_code: PageFaultErrorCode,
+) {
+    use x86_64::registers::control::Cr2;
+    
+    println!("EXCEPTION: PAGE FAULT");
+    print!("Accessed Address: {:?}", Cr2::read());
+    print!("Error Code: {:?}", error_code);
+    print!("{:#?}", stack_frame);
+    hlt_loop();
+}
+
 #[test_case]
 fn test_breakpoint_exception() {
     x86_64::instructions::interrupts::int3();

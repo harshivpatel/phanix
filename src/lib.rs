@@ -11,6 +11,7 @@ use core::panic::PanicInfo;
 pub mod serial;
 pub mod vga_buffer;
 pub mod interrupts;
+pub mod memory;
 pub trait Testable {
     fn run(&self) -> ();
 }
@@ -59,8 +60,13 @@ pub fn exit_qemu(exit_code: QemuExitCode) {
 
 /// Entry point for cargo test
 #[cfg(test)]
-#[unsafe(no_mangle)]
-pub extern "C" fn _start() -> ! {
+entry_point!(test_kernel_main);
+
+#[cfg(test)]
+use bootloader::{entry_point, BootInfo};
+
+#[cfg(test)]
+pub fn test_kernel_main(_boot_info: &'static BootInfo) -> ! {
     init();
     test_main();
     hlt_loop();
