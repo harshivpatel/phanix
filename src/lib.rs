@@ -12,6 +12,9 @@ pub mod serial;
 pub mod vga_buffer;
 pub mod interrupts;
 pub mod memory;
+
+pub mod allocator;
+extern crate alloc;
 pub trait Testable {
     fn run(&self) -> ();
 }
