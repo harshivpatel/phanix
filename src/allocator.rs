@@ -5,10 +5,16 @@ use x86_64::{
     VirtAddr,
 };
 use linked_list_allocator::LockedHeap;
+use bump::BumpAllocator;
+use linked_list::LinkedListAllocator;
 
-// Register the standard global allocator tracking instance
-#[global_allocator]
-static ALLOCATOR: LockedHeap = LockedHeap::empty();
+
+pub mod bump;
+pub mod linked_list;
+
+// // Register the standard global allocator tracking instance
+// #[global_allocator]
+// static ALLOCATOR: LockedHeap = LockedHeap::empty();
 
 // Defined virtual memory boundaries utilizing a stable twelve-digit canonical address format
 pub const HEAP_START: usize = 0x_4444_4444_0000;
@@ -47,3 +53,31 @@ pub fn init_heap(
 
     Ok(())
 }
+
+pub struct Locked<A> {
+    inner: spin::Mutex<A>,
+}
+
+impl<A> Locked<A> {
+    pub const fn new(inner: A) -> Self {
+        Locked {
+            inner: spin::Mutex::new(inner),
+        }
+    }
+    pub fn lock(&self) -> spin::MutexGuard<A> {
+        self.inner.lock()
+    }
+}
+
+fn align_up(addr: usize, align: usize) -> usize {
+    let reminder = addr % align;
+    if reminder == 0 {
+        addr
+    } else {
+        addr - reminder + align
+    }
+}
+
+#[global_allocator]
+static ALLOCATOR: Locked<LinkedListAllocator> =
+    Locked::new(LinkedListAllocator::new());
