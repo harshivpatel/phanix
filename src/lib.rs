@@ -6,6 +6,7 @@
 #![feature(abi_x86_interrupt)]
 
 pub mod gdt;
+pub mod task;
 
 use core::panic::PanicInfo;
 pub mod serial;

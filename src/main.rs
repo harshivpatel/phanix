@@ -4,6 +4,7 @@
 #![test_runner(phanix::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
+use phanix::task::executor::Executor;
 use core::{ops::Add, panic::PanicInfo};
 use bootloader::{BootInfo, entry_point};
 use phanix::memory::BootInfoFrameAllocator;
@@ -12,6 +13,8 @@ use x86_64::{structures::paging::Page};
 use alloc::{boxed::Box, vec, vec::Vec, rc::Rc};
 use phanix::allocator;
 use phanix::println;
+use phanix::task::{Task, simple_executor::SimpleExecutor};
+use phanix::task::keyboard;
 
 extern crate alloc;
 
@@ -41,21 +44,27 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
 
     // Allocate a test value on the heap using a boxed raw pointer wrapper
     let heap_value = Box::new(41);
-    println!("heap_value at {:p}", heap_value);
+    //println!("heap_value at {:p}", heap_value);
 
     // Create a dynamic array and grow it to verify heap reallocation workflows
     let mut vec = Vec::new();
     for i in 0..500 {
         vec.push(i);
     }
-    println!("vec at {:p}", vec.as_slice());
+    //println!("vec at {:p}", vec.as_slice());
 
     // Initialize an reference counted wrapper to verify data lifetime tracking
     let reference_counted = Rc::new(vec![1, 2, 3]);
     let cloned_reference = reference_counted.clone();
-    println!("current reference count is {} now", Rc::strong_count(&cloned_reference));
+    //println!("current reference count is {} now", Rc::strong_count(&cloned_reference));
     core::mem::drop(reference_counted);
-    println!("reference count is {} now", Rc::strong_count(&cloned_reference));
+    //println!("reference count is {} now", Rc::strong_count(&cloned_reference));
+
+    // --- PASTE YOUR ASYNC EXECUTOR LOOP HERE ---
+    let mut executor = SimpleExecutor::new();
+    executor.spawn(Task::new(example_task()));
+    executor.spawn(Task::new(keyboard::print_keypresses())); // new
+    executor.run();
 
     // Run the automated integration test suite if a test flag is active
     #[cfg(test)]
@@ -79,4 +88,13 @@ fn panic(info: &PanicInfo) -> ! {
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     phanix::test_panic_handler(info)
+}
+
+async fn async_number() -> u32 {
+    42
+}
+
+async fn example_task() {
+    let number = async_number().await;
+    println!("async_number: {}", number);
 }
