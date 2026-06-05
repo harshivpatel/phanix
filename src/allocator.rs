@@ -7,10 +7,14 @@ use x86_64::{
 use linked_list_allocator::LockedHeap;
 use bump::BumpAllocator;
 use linked_list::LinkedListAllocator;
+use fixed_size_block::FixedSizeBlockAllocator;
+
 
 
 pub mod bump;
 pub mod linked_list;
+pub mod fixed_size_block;
+
 
 // // Register the standard global allocator tracking instance
 // #[global_allocator]
@@ -79,5 +83,5 @@ fn align_up(addr: usize, align: usize) -> usize {
 }
 
 #[global_allocator]
-static ALLOCATOR: Locked<LinkedListAllocator> =
-    Locked::new(LinkedListAllocator::new());
+static ALLOCATOR: Locked<FixedSizeBlockAllocator> = Locked::new(
+    FixedSizeBlockAllocator::new());
