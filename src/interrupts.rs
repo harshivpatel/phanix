@@ -23,6 +23,8 @@ lazy_static! {
         
         idt[InterruptIndex::Keyboard.as_usize()]
             .set_handler_fn(keyboard_interrupt_handler);
+        idt.divide_error.set_handler_fn(divide_error_handler);
+
         idt.page_fault.set_handler_fn(page_fault_handler);
         idt
     };
@@ -39,6 +41,14 @@ extern "x86-interrupt" fn breakpoint_handler(
 ) {
     // Print out the entire snapshot
     println!("EXCEPTION: BREAKPOINT\n{:#?}", stack_frame);
+}
+extern "x86-interrupt" fn divide_error_handler(
+    stack_frame: InterruptStackFrame)
+{
+    println!("\nEXCEPTION: DIVIDE BY ZERO\n{:#?}", stack_frame);
+    loop {
+        x86_64::instructions::hlt();
+    }
 }
 
 // Special hardware function that automatically runs when a double fault happens
@@ -58,45 +68,6 @@ extern "x86-interrupt" fn timer_interrupt_handler(
             .notify_end_of_interrupt(InterruptIndex::Timer.as_u8());
     }
 }
-
-// extern "x86-interrupt" fn keyboard_interrupt_handler(
-//     _stack_frame: InterruptStackFrame
-// ) {
-//     use pc_keyboard::{layouts, DecodedKey, HandleControl, Keyboard, ScancodeSet1};
-//     use spin::Mutex;
-//     use x86_64::instructions::port::Port;
-
-//     // Thread-safe state container preserving modifier states across async interrupts
-//     static KEYBOARD: Mutex<Keyboard<layouts::Us104Key, ScancodeSet1>> =
-//         Mutex::new(Keyboard::new(
-//             ScancodeSet1::new(),
-//             layouts::Us104Key,
-//             HandleControl::Ignore,
-//         ));
-
-//     let mut keyboard = KEYBOARD.lock();
-//     let mut port = Port::new(0x60);
-
-//     // Read from port 0x60 to drain the hardware buffer and clear the line
-//     let scancode: u8 = unsafe { port.read() };
-
-//     // Pass the raw byte to the state machine for processing
-//     if let Ok(Some(key_event)) = keyboard.add_byte(scancode) {
-//         // Unify character generation and handle active shift states
-//         if let Some(key) = keyboard.process_keyevent(key_event) {
-//             match key {
-//                 DecodedKey::Unicode(character) => print!("{}", character),
-//                 DecodedKey::RawKey(key) => print!("{:?}", key),
-//             }
-//         }
-//     }
-
-//     unsafe {
-//         // Send end of interrupt confirmation to clear the master PIC line
-//         PICS.lock()
-//             .notify_end_of_interrupt(InterruptIndex::Keyboard.as_u8());
-//     }
-// }
 
 extern "x86-interrupt" fn keyboard_interrupt_handler(
     _stack_frame: InterruptStackFrame

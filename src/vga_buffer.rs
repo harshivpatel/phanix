@@ -57,27 +57,40 @@ pub struct Writer {
 }
 
 impl Writer {
-    pub fn write_byte(&mut self, byte: u8) {
-        match byte {
-            b'\n' => self.new_line(),
-            byte => {
-                if self.column_position >= BUFFER_WIDTH {
-                    self.new_line();
-                }
+pub fn write_byte(&mut self, byte: u8) {
+    match byte {
+        b'\n' => self.new_line(),
+
+        0x08 => {
+            if self.column_position > 0 {
+                self.column_position -= 1;
                 let row = BUFFER_HEIGHT - 1;
                 let col = self.column_position;
-
-                let color_code = self.color_code;
                 self.buffer.chars[row][col].write(ScreenChar {
-                    ascii_character: byte,
-                    color_code,
+                    ascii_character: b' ',
+                    color_code: self.color_code,
                 });
-                self.column_position += 1;
             }
         }
+
+        byte => {
+            if self.column_position >= BUFFER_WIDTH {
+                self.new_line();
+            }
+            let row = BUFFER_HEIGHT - 1;
+            let col = self.column_position;
+
+            let color_code = self.color_code;
+            self.buffer.chars[row][col].write(ScreenChar {
+                ascii_character: byte,
+                color_code,
+            });
+            self.column_position += 1;
+        }
     }
+}
     fn new_line(&mut self) {
-        // Iterate from the second row (index 1) to the end
+        // Iterate from the second row  to the end
         for row in 1..BUFFER_HEIGHT {
             for col in 0.. BUFFER_WIDTH {
                 // Read character from current row and write it to the row above
@@ -129,7 +142,7 @@ use spin::Mutex;
 lazy_static! {
     pub static ref WRITER: Mutex<Writer> = Mutex::new(Writer {
         column_position: 0,
-        color_code: ColorCode::new(Color::Red, Color::Black),
+        color_code: ColorCode::new(Color::Green, Color::Black),
         buffer: unsafe { &mut *(0xb8000 as *mut Buffer) },
     });
 }

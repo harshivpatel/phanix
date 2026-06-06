@@ -65,6 +65,13 @@ pub async fn run_shell() {
                             print!("\x08 \x08");
                         }
                     }
+                    DecodedKey::Unicode('\x08') => {
+                        if len > 0 {
+                            len -= 1;
+                            buf[len] = '\0';
+                            crate::vga_buffer::WRITER.lock().write_byte(0x08);
+                        }
+                    }
 
                     DecodedKey::Unicode(c) => {
                         if c.is_ascii() && len < MAX_INPUT - 1 {
@@ -87,12 +94,22 @@ fn print_prompt() {
     print!("phanix> ");
 }
 
+fn cmd_divzero() {
+    println!("triggering division by zero...");
+    unsafe {
+        core::arch::asm!("div {0:e}", in(reg) 0u32, options(nostack));
+    }
+    println!("this line should not be reached");
+}
+
+
 fn dispatch(cmd: &str) {
     match cmd {
         "" => {}
         "help" => cmd_help(),
         "syscheck" => cmd_syscheck(),
         "clear" => cmd_clear(),
+        "divzero" => cmd_divzero(),
         "echo" => println!(),
         _ => {
             if let Some(rest) = cmd.strip_prefix("echo ") {
@@ -110,6 +127,7 @@ fn cmd_help() {
     println!("  syscheck  display kernel health and memory info");
     println!("  clear     clear the screen");
     println!("  echo      echo text to the screen");
+    println!("  divzero   trigger a division-by-zero exception");
 }
 
 fn cmd_syscheck() {
@@ -155,6 +173,40 @@ fn cmd_syscheck() {
     println!("syscheck fn ptr: virt {:#x}", cmd_syscheck as usize);
 
     println!("status: OK");
+
+    // Allocator benchmark using CPU timestamp counter
+{
+    extern crate alloc;
+    use alloc::vec::Vec;
+    use core::arch::x86_64::_rdtsc;
+
+    let n = 1000usize;
+
+    // Allocation benchmark
+    let t_start = unsafe { _rdtsc() };
+    let mut v: Vec<u64> = Vec::with_capacity(n);
+    for i in 0..n as u64 {
+        v.push(i);
+    }
+    let t_end = unsafe { _rdtsc() };
+    let alloc_cycles = t_end - t_start;
+
+    // Deallocation benchmark
+    let t_start = unsafe { _rdtsc() };
+    drop(v);
+    let t_end = unsafe { _rdtsc() };
+    let dealloc_cycles = t_end - t_start;
+
+    println!(
+        "Alloc benchmark:   {} allocs in {} cycles ({} cycles/alloc)",
+        n, alloc_cycles, alloc_cycles / n as u64
+    );
+    println!(
+        "Dealloc benchmark: {} frees  in {} cycles ({} cycles/free)",
+        n, dealloc_cycles, dealloc_cycles / n as u64
+    );
+    println!("Allocator: linked-list (O(n) alloc, O(n) dealloc)");
+}
 }
 
 fn cmd_clear() {
