@@ -7,6 +7,7 @@ use core::sync::atomic::{AtomicU64, Ordering};
 pub mod simple_executor;
 pub mod keyboard;
 pub mod executor;
+pub mod shell;
 
 /// A unique identifier tracking a specific asynchronous task state machine instance
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]

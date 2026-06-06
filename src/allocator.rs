@@ -9,8 +9,6 @@ use bump::BumpAllocator;
 use linked_list::LinkedListAllocator;
 use fixed_size_block::FixedSizeBlockAllocator;
 
-
-
 pub mod bump;
 pub mod linked_list;
 pub mod fixed_size_block;

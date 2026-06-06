@@ -12,6 +12,7 @@ use x86_64::{VirtAddr, structures::paging::PageTable};
 use x86_64::{structures::paging::Page};
 use alloc::{boxed::Box, vec, vec::Vec, rc::Rc};
 use phanix::allocator;
+use phanix::task::{shell};
 use phanix::println;
 use phanix::task::{Task, simple_executor::SimpleExecutor};
 use phanix::task::keyboard;
@@ -60,10 +61,9 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     core::mem::drop(reference_counted);
     //println!("reference count is {} now", Rc::strong_count(&cloned_reference));
 
-    // --- PASTE YOUR ASYNC EXECUTOR LOOP HERE ---
+
     let mut executor = SimpleExecutor::new();
-    executor.spawn(Task::new(example_task()));
-    executor.spawn(Task::new(keyboard::print_keypresses())); // new
+    executor.spawn(Task::new(shell::run_shell()));
     executor.run();
 
     // Run the automated integration test suite if a test flag is active
