@@ -88,8 +88,7 @@ impl LinkedListAllocator {
 
         let excess_size = region.end_addr() - alloc_end;
         if excess_size > 0 && excess_size < mem::size_of::<ListNode>() {
-            // rest of region too small to hold a ListNode (required because the
-            // allocation splits the region in a used and a free part)
+            // rest of region too small to hold a ListNode
             return Err(());
         }
 

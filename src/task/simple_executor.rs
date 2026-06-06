@@ -4,8 +4,6 @@ use core::task::{Waker, RawWaker};
 use core::task::RawWakerVTable;
 use core::task::{Context, Poll};
 
-
-
 pub struct SimpleExecutor {
     task_queue: VecDeque<Task>,
 }

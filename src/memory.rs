@@ -7,8 +7,6 @@ use x86_64::{
 };
 use bootloader::bootinfo::{MemoryMap, MemoryRegionType};
 
-use crate::memory;
-
 
 pub unsafe fn init(physical_memory_offset: VirtAddr) -> OffsetPageTable<'static> {
     unsafe {

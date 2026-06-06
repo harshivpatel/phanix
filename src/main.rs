@@ -4,18 +4,14 @@
 #![test_runner(phanix::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
-use phanix::task::executor::Executor;
-use core::{ops::Add, panic::PanicInfo};
+use core::{panic::PanicInfo};
 use bootloader::{BootInfo, entry_point};
 use phanix::memory::BootInfoFrameAllocator;
-use x86_64::{VirtAddr, structures::paging::PageTable};
-use x86_64::{structures::paging::Page};
 use alloc::{boxed::Box, vec, vec::Vec, rc::Rc};
 use phanix::allocator;
 use phanix::task::{shell};
 use phanix::println;
 use phanix::task::{Task, simple_executor::SimpleExecutor};
-use phanix::task::keyboard;
 
 extern crate alloc;
 
@@ -24,7 +20,7 @@ entry_point!(kernel_main);
 
 fn kernel_main(boot_info: &'static BootInfo) -> ! {
     use phanix::memory;
-    use x86_64::{structures::paging::Translate, VirtAddr};
+    use x86_64::{VirtAddr};
 
     // Print welcome logging messages and initialize the GDT and IDT structures
     println!("Hello World{}", "!");
@@ -88,13 +84,4 @@ fn panic(info: &PanicInfo) -> ! {
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     phanix::test_panic_handler(info)
-}
-
-async fn async_number() -> u32 {
-    42
-}
-
-async fn example_task() {
-    let number = async_number().await;
-    println!("async_number: {}", number);
 }

@@ -4,17 +4,13 @@ use x86_64::{
     },
     VirtAddr,
 };
-use linked_list_allocator::LockedHeap;
-use bump::BumpAllocator;
-use linked_list::LinkedListAllocator;
 use fixed_size_block::FixedSizeBlockAllocator;
-
 pub mod bump;
 pub mod linked_list;
 pub mod fixed_size_block;
 
 
-// // Register the standard global allocator tracking instance
+// Register the standard global allocator tracking instance
 // #[global_allocator]
 // static ALLOCATOR: LockedHeap = LockedHeap::empty();
 
